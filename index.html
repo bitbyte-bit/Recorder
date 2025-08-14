@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Umar Savings Recorder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+:root {
+      --bg-color: #f4f4f4;
+      --text-color: #000;
+}
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: var(--bg-color);
+      color: var(--text-color);
+}
+.nav {
+      display: flex;
+      justify-content: space-between;
+		align-items:center;
+      background: #2196f3;
+      color: white;
+      padding: 10px 20px;
+}
+.nav h1 {
+      margin: 0;
+      font-size: 1.5em;
+}
+.material-icons {
+      cursor: pointer;
+}
+    #sideMenu {
+    		padding:20px;
+}
+    #sideMenu ul {
+      list-style: none;
+      padding: 0;
+}
+    #sideMenu li {
+      padding: 10px 0;
+      border-bottom: 1px solid #ccc;
+      cursor: pointer;
+}
+    form,.totals,.deposits {
+      max-width: 500px;
+      margin: 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      display: none;
+}
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+}
+.bank-total {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      color: white;
+}
+.deposit-entry {
+      background: #fff3e0;
+      padding: 10px;
+      margin: 5px 0;
+      border-left: 5px solid #ffa726;
+      border-radius: 5px;
+}
+.deposit-entry button {
+      margin-top: 5px;
+      width: 48%;
+}
+.total-all {
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
+}
+    #exportBtn {
+      background: white;
+      color: #2196f3;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+}
+    #passwordPopup {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+}
+    #passwordBox {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 300px;
+      width: 90%;
+      text-align: center;
+}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <h1> Savings</h1>
+    <div class="actions">
+      <button id="exportBtn">📤 Export Record</button>
+    </div>
+  </div>
+
+
+
+  <div id="passwordPopup">
+    <div id="passwordBox">
+      <h3 id="passwordTitle">Enter Password</h3>
+      <input type="password" id="passwordInput" placeholder="Password">
+      <button id="passwordBtn">Submit</button>
+    </div>
+  </div>
+
+  <form id="depositForm">
+    <input type="text" id="bankName" placeholder="Bank Name" required>
+  		<input type="number" id="amount" placeholder="Deposit Amount" required>
+    <button type="submit">Add Deposit</button>
+  </form>
+
+  <div class="totals">
+    <h3>🏦 Total Deposits by Bank</h3>
+    <div id="bankTotals"></div>
+    <div class="total-all" id="totalAll"></div>
+  </div>
+
+  <div class="deposits">
+    <h3>📜 All Deposits (Newest First)</h3>
+    <div id="depositList"></div>
+  </div>
+  <div id="sideMenu">
+    <ul>
+      <li onclick="toggleTheme()">🌗 Change Theme</li>
+      <li onclick="editPassword()">🔐 Edit Password</li>
+      <li onclick="adjustTextSize()">🔠 Edit Text Size</li>
+      <li onclick="toggleTotals()">💳 Hide/Show Total Incomes</li>
+    </ul>
+  </div>
+  <script>
+    const form = document.getElementById('depositForm');
+    const bankTotalsDiv = document.getElementById('bankTotals');
+    const depositListDiv = document.getElementById('depositList');
+    const totalAllDiv = document.getElementById('totalAll');
+    const exportBtn = document.getElementById('exportBtn');
+    const passwordPopup = document.getElementById('passwordPopup');
+    const passwordInput = document.getElementById('passwordInput');
+    const passwordBtn = document.getElementById('passwordBtn');
+    const passwordTitle = document.getElementById('passwordTitle');
+    const sideMenu = document.getElementById('sideMenu');
+
+    let deposits = JSON.parse(localStorage.getItem('deposits')) || [];
+    const bankColors = {};
+    let totalsVisible = true;
+
+    function getColor(bank) {
+      if (!bankColors[bank]) {
+        const hue = Object.keys(bankColors).length * 60 % 360;
+        bankColors[bank] = `hsl(${hue}, 70%, 50%)`;
+}
+      return bankColors[bank];
+}
+
+    function updateDisplay() {
+      const totals = {};
+      let totalAll = 0;
+
+      deposits.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      bankTotalsDiv.innerHTML = '';
+      depositListDiv.innerHTML = '';
+
+      deposits.forEach((entry, index) => {
+        if (!totals[entry.bank]) totals[entry.bank] = 0;
+        totals[entry.bank] += entry.amount;
+        totalAll += entry.amount;
+
+        const div = document.createElement('div');
+        div.className = 'deposit-entry';
+        div.innerHTML = `
+          <strong>${entry.bank}</strong>: UGX ${entry.amount.toLocaleString()}<br>
+          <small>${new Date(entry.timestamp).toLocaleString()}</small><br>
+          <button onclick="editDeposit(${index})">✏️ Edit</button>
+          <button onclick="deleteDeposit(${index})">🗑️ Delete</button>
+        `;
+        depositListDiv.appendChild(div);
+});
+
+      for (const bank in totals) {
+        const div = document.createElement('div');
+        div.className = 'bank-total';
+        div.style.backgroundColor = getColor(bank);
+        div.textContent = `${bank}: UGX ${totals[bank].toLocaleString()}`;
+        bankTotalsDiv.appendChild(div);
+}
+
+      totalAllDiv.textContent = totalsVisible? `💳 Total Across All Banks: UGX ${totalAll.toLocaleString()}`: '';
+}
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const bank = document.getElementById('bankName').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+      if (!bank || isNaN(amount)) return;
+
+      deposits.push({ bank, amount, timestamp: new Date().toISOString()});
+      localStorage.setItem('deposits', JSON.stringify(deposits));
+      form.reset();
+      updateDisplay();
+});
+
+    function deleteDeposit(index) {
+      if (confirm("Delete this deposit?")) {
+        deposits.splice(index, 1);
+        localStorage.setItem('deposits', JSON.stringify(deposits));
+        updateDisplay();
+}
+}
+
+    function editDeposit(index) {
+      const entry = deposits[index];
+      const newAmount = prompt("Enter new amount:", entry.amount);
+      if (newAmount!== null &&!isNaN(parseFloat(newAmount))) {
+        deposits[index].amount = parseFloat(newAmount);
+        localStorage.setItem('deposits', JSON.stringify(deposits));
+        updateDisplay();
+}
+}
+
+    exportBtn.addEventListener('click', () => {
+      const bank = prompt("Enter bank name to export:");
+      if (!bank) return;
+
+      const filtered = deposits.filter(d => d.bank.toLowerCase() === bank.toLowerCase());
+      if (filtered.length === 0) {
+        alert("No records found for that bank.");
+        return;
+}
+
+      let content = `Deposits for ${bank}:\n\n`;
+      filtered.forEach(d => {
+        content += `UGX ${d.amount.toLocaleString()} on ${new Date(d.timestamp).toLocaleString()}\n`;
+});
+
+      const blob = new Blob([content], { type: 'text/plain'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${bank}_deposits.txt`;
+      link.click();
+});
+
+    // Password logic
+    const storedPassword = localStorage.getItem('depositPassword');
+
+    passwordBtn.addEventListener('click', () => {
+      const input = passwordInput.value;
+      if (!input) return;
+
+      if (!storedPassword) {
+        localStorage.setItem('depositPassword', input);
+        unlockApp();
+} else if (input === storedPassword) {
+        unlockApp();
+} else {
+        alert("Incorrect password.");
+}
+});
+
+    function unlockApp() {
+      passwordPopup.style.display = 'none';
+      form.style.display = 'block';
+      document.querySelector('.totals').style.display = 'block';
+      document.querySelector('.deposits').style.display = 'block';
+      exportBtn.style.display = 'inline-block';
+      updateDisplay();
+}
+
+    window.onload = () => {
+      if (!storedPassword) {
+        passwordTitle.textContent = "Set a Pasword";
+} else {
+        passwordTitle.textContent = "Enter Password";
+}
+};
+
+    // Side menu functions
+    function toggleMenu() {
+      sideMenu.style.right = sideMenu.style.right === '0px'? '-250px': '0px';
+}
+
+    function toggleTheme() {
+      const root = document.documentElement;
+      const isDark = root.style.getPropertyValue('--bg-color') === '#222';
+      root.style.setProperty('--bg-color', isDark? '#f4f4f4': '#222');
+      root.style.setProperty('--text-color', isDark? '#000': '#fff');
+}
+
+    function editPassword() {
+      const newPass = prompt("Enter new password:");
+      if (newPass) {
+        localStorage.setItem('depositPassword', newPass);
+        alert("Password updated.");
+}
+}
+
+    function adjustTextSize() {
+      const size = prompt("Enter text size in pixels (e.g., 16):");
+      if (size &&!isNaN(parseInt(size))) {
+        document.body.style.fontSize = `${parseInt(size)}px`;
+}
+}
+
+    function toggleTotals() {
+      totalsVisible =!totalsVisible;
+      updateDisplay();
+}
+
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(() => {
+        console.log('Service Worker registered');
+});
+}document.getElementById('close').addEventListener('click',()=>{
+		const side=document.getElementById('sideMenu');
+		side.style.width='0';
+});
+		
+  </script>
+</body>
+</html>
